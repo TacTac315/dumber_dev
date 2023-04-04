@@ -1,4 +1,4 @@
-###Equipe
+### Equipe
 Ayoub Belafki
 Vincent Eychenne
 Jérémy Marceau
