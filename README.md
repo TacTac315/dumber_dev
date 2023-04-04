@@ -1,3 +1,9 @@
+###Equipe
+Ayoub Belafki
+Vincent Eychenne
+Jérémy Marceau
+Dimitri Pizzinat 
+
 # Dumber
 
 Depot du projet de temps reel 4eme année au departement GEI de l'INSA Toulouse.
