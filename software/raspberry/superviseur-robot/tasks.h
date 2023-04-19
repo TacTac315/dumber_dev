@@ -62,6 +62,14 @@ public:
      * @brief Return battery level
      */
     void BatteryLevel();
+    /**
+     * @brief Run with watchdog
+     */
+    void RunWatchdog();
+    /**
+     * @brief Compteur watchdog
+     */
+    void CompteurWD();
   
 private:
     /**********************************************************************/
@@ -82,7 +90,8 @@ private:
     RT_TASK th_startRobot;
     RT_TASK th_move;
     RT_TASK th_BatteryLevel;
-    
+    RT_TASK th_RunWatchdog;
+
     /**********************************************************************/
     /* Mutex                                                              */
     /**********************************************************************/
@@ -98,7 +107,7 @@ private:
     RT_SEM sem_openComRobot;
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
-
+    RT_SEM sem_RunWtchg;
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
