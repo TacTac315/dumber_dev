@@ -62,14 +62,7 @@ public:
      * @brief Return battery level
      */
     void BatteryLevel();
-    /**
-     * @brief Run with watchdog
-     */
-    void RunWatchdog();
-    /**
-     * @brief Compteur watchdog
-     */
-    void CompteurWD();
+
   
 private:
     /**********************************************************************/

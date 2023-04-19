@@ -27,8 +27,6 @@
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
 #define PRIORITY_TBATTERYLEVEL 21
-#define PRIORITY_WATCHDOG 10
-#define PRIORITY_TCOMPTEUR 10
 
 /*
  * Some remarks:
@@ -115,18 +113,6 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
-    if (err = rt_sem_create(&sem_RunWtchg, NULL, 0, S_FIFO))
-    {
-        cerr << "Error semaphore create: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
-    if (err = rt_sem_create(&sem_Compteur, NULL, 0, S_FIFO))
-    {
-        cerr << "Error semaphore create: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
     cout << "Semaphores created successfully" << endl
          << flush;
 
@@ -170,18 +156,6 @@ void Tasks::Init()
         exit(EXIT_FAILURE);
     }
     if (err = rt_task_create(&th_BatteryLevel, "th_BatteryLevel", 0, PRIORITY_TBATTERYLEVEL, 0))
-    {
-        cerr << "Error task create: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
-    if (err = rt_task_create(&th_RunWatchdog, "th_watchdog", 0, PRIORITY_WATCHDOG, 0))
-    {
-        cerr << "Error task create: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
-    if (err = rt_task_create(&th_CompteurWD, "th_CompteurWD", 0, PRIORITY_TCOMPTEUR, 0))
     {
         cerr << "Error task create: " << strerror(-err) << endl
              << flush;
@@ -249,18 +223,6 @@ void Tasks::Run()
         exit(EXIT_FAILURE);
     }
     if (err = rt_task_start(&th_BatteryLevel, (void (*)(void *)) & Tasks::BatteryLevel, this))
-    {
-        cerr << "Error task start: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
-    if (err = rt_task_start(&th_RunWatchdog, (void (*)(void *)) & Tasks::RunWatchdog, this))
-    {
-        cerr << "Error task start: " << strerror(-err) << endl
-             << flush;
-        exit(EXIT_FAILURE);
-    }
-    if(err = rt_task_start(&th_CompteurWD, (void (*)(void *)) & Tasks::CompteurWD, this))
     {
         cerr << "Error task start: " << strerror(-err) << endl
              << flush;
@@ -477,6 +439,24 @@ void Tasks::StartRobotTask(void *arg)
             rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
             robotStarted = 1;
             rt_mutex_release(&mutex_robotStarted);
+            rt_task_set_periodic(NULL, TM_NOW, 1000000000);
+
+            while (1)
+            {
+                rt_task_wait_period(NULL);
+                rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+                rs = robotStarted;
+                rt_mutex_release(&mutex_robotStarted);
+                if (rs == 1)
+                {
+                    cout << "Periodic Reload wd update";
+                    rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+                    msgSend = robot.ReloadWD();
+                    msgSend = robot.Stop();
+                    rt_mutex_release(&mutex_robot);
+                    cout << endl<< flush;
+                }
+            }
         }
     }
 }
@@ -588,34 +568,3 @@ void Tasks::BatteryLevel()
         }
     }
 }
-
-void Tasks::RunWatchdog()
-{
-    int compteur=0;
-    int rs;
-    Message *msg;
-    // Synchronization barrier (waiting that all tasks are starting)
-    rt_sem_p(&sem_barrier, TM_INFINITE);
-    rt_sem_p(&sem_RunWtchg, TM_INFINITE);
-    rt_task_set_periodic(NULL, TM_NOW, 1000000000);
-    while (1)
-    {
-        compteur++;
-        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
-        rs = robotStarted;
-        rt_mutex_release(&mutex_robotStarted);
-        rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-        msg = robot.ReloadWD();
-        if (msg = MESSAGE_ROBOT_RELOAD_WD){
-            compteur = 0;
-        }
-        if(compteur > 3 ){
-            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-            robot.Write(robot.Stop());
-            rt_mutex_release(&mutex_robot);
-            WriteInQueue(&q_messageToMon, msg);
-        }
-    }
-}
-
-
