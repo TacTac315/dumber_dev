@@ -622,7 +622,18 @@ void Tasks::Compteur(Message * msg){
     //Appel par les autres taches
     if ((msg ->CompareID(MESSAGE_ANSWER_COM_ERROR))||(msg->CompareID(MESSAGE_ANSWER_ROBOT_TIMEOUT))){
         cout<<"Erreur detecte : incrementation compteur"<<__PRETTY_FUNCTION__<<endl<<flush;
-        
+        NbErreur++;
+        if (NbErreur>3){
+            cout<<"Erreur detecte : arret du robot"<<__PRETTY_FUNCTION__<<endl<<flush;
+            rt_mutex_acquire(&mutex_robot,TM_INFINITE);
+            robot.Stop();
+            robot.Close();
+            rt_mutex_release(&mutex_robot);
+            rt_mutex_acquire(&mutex_robotStarted,TM_INFINITE);
+            robotStarted = 0;
+            rt_mutex_release(&mutex_robotStarted);
+            NbErreur = 0;
+        }
     }
 
 }
