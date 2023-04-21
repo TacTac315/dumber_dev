@@ -57,12 +57,6 @@ public:
      * @brief Suspends main thread
      */
     void Join();
-    
-    /**
-     * @brief Return battery level
-     */
-    void BatteryLevel();
-
   
 private:
     /**********************************************************************/
@@ -72,6 +66,7 @@ private:
     ComRobot robot;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
+    int NbErreur = 0; //Variable incrémenté par compteur
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -84,6 +79,7 @@ private:
     RT_TASK th_move;
     RT_TASK th_BatteryLevel;
     RT_TASK th_RunWatchdog;
+    RT_TASK th_Compteur;
 
     /**********************************************************************/
     /* Mutex                                                              */
@@ -139,6 +135,16 @@ private:
      * @brief Thread handling control of the robot.
      */
     void MoveTask(void *arg);
+
+    /**
+     * @brief Thread niveau de batterie
+     */
+    void BatteryLevel(void);
+
+    /**
+     * @brief Thread handling watchdog.
+     */
+    void RunWatchdog(void);
     
     /**********************************************************************/
     /* Queue services                                                     */
@@ -156,6 +162,12 @@ private:
      * @return Message read
      */
     Message *ReadInQueue(RT_QUEUE *queue);
+
+    /**
+     * @brief Compteur erreur
+     * @param Message
+     */
+    void Compteur(Message * msg);
 
 };
 

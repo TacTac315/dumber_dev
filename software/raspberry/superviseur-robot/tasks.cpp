@@ -168,6 +168,12 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
+    if(err = rt_task_create(&th_Compteur, "th_Compteur", 0, PRIORITY_TCOMPTEUR, 0))
+    {
+        cerr << "Error task create: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks created successfully" << endl
          << flush;
 
@@ -235,6 +241,12 @@ void Tasks::Run()
         exit(EXIT_FAILURE);
     }
     if(err = rt_task_start(&th_RunWatchdog, (void (*)(void *)) & Tasks::RunWatchdog, this))
+    {
+        cerr << "Error task start: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
+    if(err = rt_task_start(&th_Compteur, (void (*)(void *)) & Tasks::Compteur, this))
     {
         cerr << "Error task start: " << strerror(-err) << endl
              << flush;
@@ -574,6 +586,7 @@ void Tasks::BatteryLevel()
         rt_mutex_release(&mutex_robotStarted);
         if (rs == 1)
         {
+            cout<<"Periodic battery update"<<__PRETTY_FUNCTION__<<endl<<flush;
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msg = robot.Write(robot.GetBattery());
             rt_mutex_release(&mutex_robot);
@@ -582,7 +595,7 @@ void Tasks::BatteryLevel()
     }
 }
 
-void Tasks::RunWatchdog(void *args){
+void Tasks::RunWatchdog(){
     cout<<"Demarrage avec Watchdog "<<__PRETTY_FUNCTION__<<endl<<flush;
     rt_sem_p(&sem_barrier, TM_INFINITE);
     rt_task_set_periodic(NULL, TM_NOW, 1000000000); //1s
@@ -593,12 +606,23 @@ void Tasks::RunWatchdog(void *args){
             rt_mutex_release(&mutex_robotStarted);
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             robot.Write(robot.ReloadWD());
-            cout<<"Redemmarage Watchdog"<<endl<<flush;
+            cout<<"Redemmarage Watchdog"<<__PRETTY_FUNCTION__<<endl<<flush;
             rt_mutex_release(&mutex_robot);
         }
         else{
             rt_mutex_release(&mutex_robotStarted);
         }
+    }
+
+}
+
+void Tasks::Compteur(Message * msg){
+    cout<<"Demarrage Compteur"<<__PRETTY_FUNCTION__<<endl<<flush;
+    //Ce n'est pas une tache periodique
+    //Appel par les autres taches
+    if ((msg ->CompareID(MESSAGE_ANSWER_COM_ERROR))||(msg->CompareID(MESSAGE_ANSWER_ROBOT_TIMEOUT))){
+        cout<<"Erreur detecte : incrementation compteur"<<__PRETTY_FUNCTION__<<endl<<flush;
+        
     }
 
 }
