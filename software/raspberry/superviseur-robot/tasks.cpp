@@ -26,7 +26,8 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
-#define PRIORITY_TBATTERYLEVEL 21
+#define PRIORITY_TBATTERYLEVEL 26
+#define PRIORITY_TRUNWATCHDOG 21
 
 /*
  * Some remarks:
@@ -161,7 +162,12 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
-
+    if(err = rt_task_creat(&th_RunWatchdog, "th_RunWatchdog", 0, PRIORITY_TRUNWATCHDOG, 0))
+    {
+        cerr << "Error task create: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks created successfully" << endl
          << flush;
 
@@ -228,7 +234,12 @@ void Tasks::Run()
              << flush;
         exit(EXIT_FAILURE);
     }
-
+    if(err = rt_task_start(&th_RunWatchdog, (void (*)(void *)) & Tasks::RunWatchdog, this))
+    {
+        cerr << "Error task start: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks launched" << endl
          << flush;
 }
@@ -420,12 +431,12 @@ void Tasks::StartRobotTask(void *arg)
     /**************************************************************************************/
     while (1)
     {
-
+        int rs;
         Message *msgSend;
         rt_sem_p(&sem_startRobot, TM_INFINITE);
         cout << "Start robot with watchdog (";
         rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-        msgSend = robot.Write(robot.StartWithWD());
+        msgSend = robot.Write(robot.StartWithWD());//On démarre le robot avec le watchdog
         rt_mutex_release(&mutex_robot);
         cout << msgSend->GetID();
         cout << ")" << endl;
@@ -433,12 +444,13 @@ void Tasks::StartRobotTask(void *arg)
         cout << "Movement answer: " << msgSend->ToString() << endl
              << flush;
         WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendToMon
-
+        //Creation du reload du watchdog
         if (msgSend->GetID() == MESSAGE_ANSWER_ACK)
         {
             rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
             robotStarted = 1;
             rt_mutex_release(&mutex_robotStarted);
+            /*
             rt_task_set_periodic(NULL, TM_NOW, 1000000000);
 
             while (1)
@@ -457,6 +469,7 @@ void Tasks::StartRobotTask(void *arg)
                     cout << endl<< flush;
                 }
             }
+            */
         }
     }
 }
@@ -567,4 +580,25 @@ void Tasks::BatteryLevel()
             WriteInQueue(&q_messageToMon, msg);
         }
     }
+}
+
+void Tasks::RunWatchdog(void *args){
+    cout<<"Demarrage avec Watchdog "<<__PRETTY_FUNCTION__<<endl<<flush;
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    rt_task_set_periodic(NULL, TM_NOW, 1000000000); //1s
+    while(1){
+        rt_task_wait_period(NULL);
+        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+        if(robotStarted == 1){
+            rt_mutex_release(&mutex_robotStarted);
+            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+            robot.Write(robot.ReloadWD());
+            cout<<"Redemmarage Watchdog"<<endl<<flush;
+            rt_mutex_release(&mutex_robot);
+        }
+        else{
+            rt_mutex_release(&mutex_robotStarted);
+        }
+    }
+
 }
