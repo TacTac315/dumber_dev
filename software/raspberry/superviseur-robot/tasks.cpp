@@ -60,7 +60,7 @@ void Tasks::Init()
 {
     int status;
     int err;
-
+    camera = new Camera(sm,5);
     /**************************************************************************************/
     /* 	Mutex creation                                                                    */
     /**************************************************************************************/
@@ -196,27 +196,22 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
-
-    if (err = rt_task_create(&th_OpenCamera, "th_OpenCamera", 0, PRIORITY_TOPENCAMERA, 0))
-    {
-        cerr << "Error task create: " << strerror(-err) << endl
-             << flush;
+    
+    if (err = rt_task_create(&th_OpenCamera, "th_OpenCamera", 0, PRIORITY_TOPENCAMERA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-
-    if (err = rt_task_create(&th_GrabCamera, "th_GrabCamera", 0, PRIORITY_TGRABCAMERA, 0))
-    {
-        cerr << "Error task create: " << strerror(-err) << endl
-             << flush;
+    
+    if (err = rt_task_create(&th_GrabCamera, "th_GrabCamera", 0, PRIORITY_TGRABCAMERA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-
-    if (err = rt_task_create(&th_CloseCamera, "th_CloseCamera", 0, PRIORITY_TGRABCAMERA, 0))
-    {
-        cerr << "Error task create: " << strerror(-err) << endl
-             << flush;
+    
+     if (err = rt_task_create(&th_CloseCamera, "th_CloseCamera", 0, PRIORITY_TCLOSECAMERA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
     cout << "Tasks created successfully" << endl
          << flush;
 
@@ -289,27 +284,21 @@ void Tasks::Run()
              << flush;
         exit(EXIT_FAILURE);
     }
-
-    if (err = rt_task_start(&th_OpenCamera, (void (*)(void *)) & Tasks::OpenCamera, this))
-    {
-        cerr << "Error task start: " << strerror(-err) << endl
-             << flush;
+    if (err = rt_task_start(&th_OpenCamera, (void(*)(void*)) & Tasks::OpenCamera, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
-    }
+        }
 
-    if (err = rt_task_start(&th_GrabCamera, (void (*)(void *)) & Tasks::GrabCamera, this))
-    {
-        cerr << "Error task start: " << strerror(-err) << endl
-             << flush;
+    if (err = rt_task_start(&th_GrabCamera, (void(*)(void*)) & Tasks::GrabCamera, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
-    }
+        }
 
-    if (err = rt_task_start(&th_CloseCamera, (void (*)(void *)) & Tasks::CloseCamera, this))
-    {
-        cerr << "Error task start: " << strerror(-err) << endl
-             << flush;
+    if (err = rt_task_start(&th_CloseCamera, (void(*)(void*)) & Tasks::CloseCamera, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
-    }
+        }
+
     cout << "Tasks launched" << endl
          << flush;
 }
@@ -441,7 +430,14 @@ void Tasks::ReceiveFromMonTask(void *arg)
             rt_mutex_acquire(&mutex_move, TM_INFINITE);
             move = msgRcv->GetID();
             rt_mutex_release(&mutex_move);
+        }  
+        else if (msgRcv->CompareID(MESSAGE_CAM_OPEN)){
+            rt_sem_v(&sem_OpenCamera);
         }
+        else if (msgRcv->CompareID(MESSAGE_CAM_CLOSE)){
+            rt_sem_v(&sem_CloseCamera);
+        }
+        
         delete (msgRcv); // mus be deleted manually, no consumer
     }
 }
@@ -549,8 +545,11 @@ void Tasks::MoveTask(void *arg)
         rt_task_wait_period(NULL);
         cout << "Periodic movement update";
         rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+
         rs = robotStarted;
+
         rt_mutex_release(&mutex_robotStarted);
+
         if (rs == 1)
         {
             rt_mutex_acquire(&mutex_move, TM_INFINITE);
@@ -689,60 +688,64 @@ void Tasks::Compteur(Message *msg)
         }
     }
 }
-
-
 // Fonctionnalité 14
 void Tasks::OpenCamera()
-{    
-    while(1)
+{    cout << "Start " << __PRETTY_FUNCTION__ << endl;
+
+    while (1)
     {
-     rt_sem_p(&sem_OpenCamera, TM_INFINITE);
-     rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-     
-     if (!camera->Open()) 
-     {
-         cerr<< "La camera ne s'ouvre pas" << endl << flush;
-     }         
-     rt_mutex_release(&mutex_camera);
+        rt_sem_p(&sem_OpenCamera, TM_INFINITE);
+        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        if (!camera->Open())
+        {
+            cerr << "La camera ne s'ouvre pas" << endl << flush;
+        }
+        rt_mutex_release(&mutex_camera);
     }
 }
 // Fin Fonctionnalité 14
-
-// Fonctionnalité 15 
-
+// Fonctionnalité 15
 void Tasks::GrabCamera()
-{
+{    cout << "Start " << __PRETTY_FUNCTION__ << endl;
+
     rt_sem_p(&sem_barrier, TM_INFINITE);
     rt_task_set_periodic(NULL, TM_NOW, 100000000);
-    while(1)
+    while (1)
     {
-    rt_task_wait_period(NULL);
-    if (camera->IsOpen())
-    {
+        rt_task_wait_period(NULL);
+        cout << "la" << endl;
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-        Img img = camera->Grab();
-        rt_mutex_release(&mutex_camera); // limite la zone critique pour opti donc on met des qu'on peut le release
-        MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, &img);
-        cerr<<endl<<flush;
-        WriteInQueue(&q_messageToMon,msgImg);
+        if (camera->IsOpen())
+        {
+            cout << "pas la" << endl;
+            
+            Img img = camera->Grab();
+           // limite la zone critique pour opti donc on met des qu'on peut le release
+            MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, &img);
+            cerr << endl
+                 << flush;
+            WriteInQueue(&q_messageToMon, msgImg);
+        }
+         rt_mutex_release(&mutex_camera); 
+        cout << " la2" << endl;
+
     }
-    }  
 }
+// Fin Fonctionnalité 15
 
-// Fin Fonctionnalité 15 
-
-
-// Fonctionnalité 16 
+// Fonctionnalité 16
 void Tasks::CloseCamera()
 {
     bool IsClosed;
-    
-    while(1)
+    cout << "Start " << __PRETTY_FUNCTION__ << endl;
+
+    while (1)
     {
-     rt_sem_p(&sem_CloseCamera, TM_INFINITE);
-     rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-     camera->Close();
-     rt_mutex_release(&mutex_camera);
-    
+        rt_sem_p(&sem_CloseCamera, TM_INFINITE);
+        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        camera->Close();
+        rt_mutex_release(&mutex_camera);
     }
 }
+
+// Fin Fonctionnalité 16

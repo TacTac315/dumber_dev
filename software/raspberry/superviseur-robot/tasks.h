@@ -58,6 +58,22 @@ public:
      * @brief Suspends main thread
      */
     void Join();
+    
+    /**
+     * @brief Get the state of the camera
+     */
+    void OpenCamera();
+
+    /**
+     * @brief Get the frame of the camera
+     */
+
+    void GrabCamera();
+
+    /**
+     * @brief Close the camera
+     */
+    void CloseCamera();
 
 private:
     /**********************************************************************/
@@ -65,9 +81,12 @@ private:
     /**********************************************************************/
     ComMonitor monitor;
     ComRobot robot;
+    Camera * camera;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
     int NbErreur = 0; // Variable incrémenté par compteur
+    
+    bool IsOpen;
 
     /**********************************************************************/
     /* Tasks                                                              */
@@ -153,21 +172,6 @@ private:
      */
     void RunWatchdog(void);
 
-    /**
-     * @brief Get the state of the camera
-     */
-    void OpenCamera();
-
-    /**
-     * @brief Get the frame of the camera
-     */
-
-    void GrabCamera();
-
-    /**
-     * @brief Close the camera
-     */
-    void CloseCamera();
 
     /**********************************************************************/
     /* Queue services                                                     */
