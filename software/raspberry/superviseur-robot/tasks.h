@@ -36,7 +36,8 @@
 
 using namespace std;
 
-class Tasks {
+class Tasks
+{
 public:
     /**
      * @brief Initializes main structures (semaphores, tasks, mutex, etc.)
@@ -52,12 +53,12 @@ public:
      * @brief Stops tasks
      */
     void Stop();
-    
+
     /**
      * @brief Suspends main thread
      */
     void Join();
-  
+
 private:
     /**********************************************************************/
     /* Shared data                                                        */
@@ -66,8 +67,8 @@ private:
     ComRobot robot;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
-    int NbErreur = 0; //Variable incrémenté par compteur
-    
+    int NbErreur = 0; // Variable incrémenté par compteur
+
     /**********************************************************************/
     /* Tasks                                                              */
     /**********************************************************************/
@@ -102,7 +103,7 @@ private:
     /**********************************************************************/
     int MSG_QUEUE_SIZE;
     RT_QUEUE q_messageToMon;
-    
+
     /**********************************************************************/
     /* Tasks' functions                                                   */
     /**********************************************************************/
@@ -110,17 +111,17 @@ private:
      * @brief Thread handling server communication with the monitor.
      */
     void ServerTask(void *arg);
-     
+
     /**
      * @brief Thread sending data to monitor.
      */
     void SendToMonTask(void *arg);
-        
+
     /**
      * @brief Thread receiving data from monitor.
      */
     void ReceiveFromMonTask(void *arg);
-    
+
     /**
      * @brief Thread opening communication with the robot.
      */
@@ -130,7 +131,7 @@ private:
      * @brief Thread starting the communication with the robot.
      */
     void StartRobotTask(void *arg);
-    
+
     /**
      * @brief Thread handling control of the robot.
      */
@@ -145,7 +146,23 @@ private:
      * @brief Thread handling watchdog.
      */
     void RunWatchdog(void);
-    
+
+    /**
+     * @brief Get the state of the camera
+     */
+    void OpenCamera();
+
+    /**
+     * @brief Get the frame of the camera
+     */
+
+    void GrabCamera();
+
+    /**
+     * @brief Close the camera
+     */
+    void CloseCamera();
+
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/
@@ -155,7 +172,7 @@ private:
      * @param msg Message to be stored
      */
     void WriteInQueue(RT_QUEUE *queue, Message *msg);
-    
+
     /**
      * Read a message from a given queue, block if empty
      * @param queue Queue identifier
@@ -167,9 +184,7 @@ private:
      * @brief Compteur erreur
      * @param Message
      */
-    void Compteur(Message * msg);
-
+    void Compteur(Message *msg);
 };
 
-#endif // __TASKS_H__ 
-
+#endif // __TASKS_H__

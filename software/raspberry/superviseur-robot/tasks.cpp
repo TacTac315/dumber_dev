@@ -29,6 +29,9 @@
 #define PRIORITY_TBATTERYLEVEL 26
 #define PRIORITY_TRUNWATCHDOG 50
 #define PRIORITY_TCOMPTEUR 22
+#define PRIORITY_TOPENCAMERA 19
+#define PRIORITY_TGRABCAMERA 18
+#define PRIORITY_TCLOSECAMERA 18
 
 /*
  * Some remarks:
@@ -85,6 +88,12 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_camera, NULL))
+    {
+        cerr << "Error mutex create: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Mutexes created successfully" << endl
          << flush;
 
@@ -116,6 +125,18 @@ void Tasks::Init()
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_RunWtchg, NULL, 0, S_FIFO))
+    {
+        cerr << "Error semaphore create: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_OpenCamera, NULL, 0, S_FIFO))
+    {
+        cerr << "Error semaphore create: " << strerror(-err) << endl
+             << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_CloseCamera, NULL, 0, S_FIFO))
     {
         cerr << "Error semaphore create: " << strerror(-err) << endl
              << flush;
@@ -169,7 +190,7 @@ void Tasks::Init()
              << flush;
         exit(EXIT_FAILURE);
     }
-    if(err = rt_task_create(&th_RunWatchdog, "th_RunWatchdog", 0, PRIORITY_TRUNWATCHDOG, 0))
+    if (err = rt_task_create(&th_RunWatchdog, "th_RunWatchdog", 0, PRIORITY_TRUNWATCHDOG, 0))
     {
         cerr << "Error task create: " << strerror(-err) << endl
              << flush;
@@ -241,7 +262,7 @@ void Tasks::Run()
              << flush;
         exit(EXIT_FAILURE);
     }
-    if(err = rt_task_start(&th_RunWatchdog, (void (*)(void *)) & Tasks::RunWatchdog, this))
+    if (err = rt_task_start(&th_RunWatchdog, (void (*)(void *)) & Tasks::RunWatchdog, this))
     {
         cerr << "Error task start: " << strerror(-err) << endl
              << flush;
@@ -443,11 +464,11 @@ void Tasks::StartRobotTask(void *arg)
         rt_sem_p(&sem_startRobot, TM_INFINITE);
         cout << "Start robot with watchdog (";
         rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-        
-        msgSend = robot.Write(robot.StartWithWD());//On démarre le robot avec le watchdog
+
+        msgSend = robot.Write(robot.StartWithWD()); // On démarre le robot avec le watchdog
         rt_mutex_release(&mutex_robot);
         rt_sem_v(&sem_RunWtchg);
-        //Creation du reload du watchdog
+        // Creation du reload du watchdog
         if (msgSend->GetID() == MESSAGE_ANSWER_ACK)
         {
             rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
@@ -563,7 +584,8 @@ void Tasks::BatteryLevel()
         rt_mutex_release(&mutex_robotStarted);
         if (rs == 1)
         {
-            cout<<"Periodic battery update"<<__PRETTY_FUNCTION__<<endl<<flush;
+            cout << "Periodic battery update" << __PRETTY_FUNCTION__ << endl
+                 << flush;
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msg = robot.Write(robot.GetBattery());
             Compteur(msg);
@@ -573,46 +595,109 @@ void Tasks::BatteryLevel()
     }
 }
 
-void Tasks::RunWatchdog(){
-    cout<<"Demarrage avec Watchdog "<<__PRETTY_FUNCTION__<<endl<<flush;
+void Tasks::RunWatchdog()
+{
+    cout << "Demarrage avec Watchdog " << __PRETTY_FUNCTION__ << endl
+         << flush;
     rt_sem_p(&sem_barrier, TM_INFINITE);
     rt_sem_p(&sem_RunWtchg, TM_INFINITE);
     int rs;
-    rt_task_set_periodic(NULL, TM_NOW, 1000000000); //0.5s
-    while(1){
+    rt_task_set_periodic(NULL, TM_NOW, 1000000000); // 0.5s
+    while (1)
+    {
         rt_task_wait_period(NULL);
         rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
-        rs=robotStarted;
+        rs = robotStarted;
         rt_mutex_release(&mutex_robotStarted);
-        if(rs == 1){
+        if (rs == 1)
+        {
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             robot.Write(robot.ReloadWD());
-            cout<<"Redemmarage Watchdog"<<__PRETTY_FUNCTION__<<endl<<flush;
+            cout << "Redemmarage Watchdog" << __PRETTY_FUNCTION__ << endl
+                 << flush;
             rt_mutex_release(&mutex_robot);
         }
     }
-
 }
 
-void Tasks::Compteur(Message * msg){
-    cout<<"Demarrage Compteur"<<__PRETTY_FUNCTION__<<endl<<flush;
-    //Ce n'est pas une tache periodique
-    //Appel par les autres taches
-    if ((msg ->CompareID(MESSAGE_ANSWER_COM_ERROR))||(msg->CompareID(MESSAGE_ANSWER_ROBOT_TIMEOUT))){
-        cout<<"###Erreur detecte : incrementation compteur"<<endl<<flush;
+void Tasks::Compteur(Message *msg)
+{
+    cout << "Demarrage Compteur" << __PRETTY_FUNCTION__ << endl
+         << flush;
+    // Ce n'est pas une tache periodique
+    // Appel par les autres taches
+    if ((msg->CompareID(MESSAGE_ANSWER_COM_ERROR)) || (msg->CompareID(MESSAGE_ANSWER_ROBOT_TIMEOUT)))
+    {
+        cout << "###Erreur detecte : incrementation compteur" << endl
+             << flush;
         NbErreur++;
-        if (NbErreur>3){
-            cout<<"################################"<<endl;
-            cout<<"Erreur detecte : arret du robot"<<endl<<flush;
-            rt_mutex_acquire(&mutex_robot,TM_INFINITE);
+        if (NbErreur > 3)
+        {
+            cout << "################################" << endl;
+            cout << "Erreur detecte : arret du robot" << endl
+                 << flush;
+            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             robot.Stop();
             robot.Close();
             rt_mutex_release(&mutex_robot);
-            rt_mutex_acquire(&mutex_robotStarted,TM_INFINITE);
+            rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
             robotStarted = 0;
             rt_mutex_release(&mutex_robotStarted);
             NbErreur = 0;
         }
     }
-
 }
+// Fonctionnalité 14
+void Tasks::OpenCamera()
+{
+    while (1)
+    {
+        rt_sem_p(&sem_OpenCamera, TM_INFINITE);
+        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        IsOpen = camera->Open();
+        rt_mutex_release(&mutex_camera);
+        if (!IsOpen)
+        {
+            cerr << "La camera ne s'ouvre pas" << endl
+                 << flush;
+        }
+    }
+}
+// Fin Fonctionnalité 14
+// Fonctionnalité 15
+void Tasks::GrabCamera()
+{
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    rt_task_set_periodic(NULL, TM_NOW, 100000000);
+    while (1)
+    {
+        rt_task_wait_period(NULL);
+        if (IsOpen)
+        {
+            rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+            Img img = camera->Grab();
+            rt_mutex_release(&mutex_camera); // limite la zone critique pour opti donc on met des qu'on peut le release
+            MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, &img);
+            cerr << endl
+                 << flush;
+            WriteInQueue(&q_messageToMon, msgImg);
+        }
+    }
+}
+// Fin Fonctionnalité 15
+
+// Fonctionnalité 16
+void Tasks::CloseCamera()
+{
+    bool IsClosed;
+
+    while (1)
+    {
+        rt_sem_p(&sem_CloseCamera, TM_INFINITE);
+        rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        camera->Close();
+        rt_mutex_release(&mutex_camera);
+    }
+}
+
+// Fin Fonctionnalité 16
