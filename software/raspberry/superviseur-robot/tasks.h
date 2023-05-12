@@ -81,6 +81,9 @@ private:
     RT_TASK th_BatteryLevel;
     RT_TASK th_RunWatchdog;
     RT_TASK th_Compteur;
+    RT_TASK th_OpenCamera;
+    RT_TASK th_GrabCamera;
+    RT_TASK th_CloseCamera;
 
     /**********************************************************************/
     /* Mutex                                                              */
@@ -89,6 +92,7 @@ private:
     RT_MUTEX mutex_robot;
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
+    RT_MUTEX mutex_camera;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -98,6 +102,8 @@ private:
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
     RT_SEM sem_RunWtchg;
+    RT_SEM sem_OpenCamera;
+    RT_SEM sem_CloseCamera;
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
