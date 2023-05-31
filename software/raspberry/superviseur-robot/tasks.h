@@ -81,12 +81,13 @@ private:
     /**********************************************************************/
     ComMonitor monitor;
     ComRobot robot;
-    Camera * camera;
+    Camera *camera;
+    Arena arena;
+    bool positionActivated = false;
     int robotStarted = 0;
-    int move = MESSAGE_ROBOT_STOP;
     int NbErreur = 0; // Variable incrémenté par compteur
-    
-    bool IsOpen;
+    int move = MESSAGE_ROBOT_STOP;
+   
 
     /**********************************************************************/
     /* Tasks                                                              */
@@ -103,6 +104,8 @@ private:
     RT_TASK th_OpenCamera;
     RT_TASK th_GrabCamera;
     RT_TASK th_CloseCamera;
+    RT_TASK th_findArena;
+    RT_TASK th_getRobotPosition;
 
     /**********************************************************************/
     /* Mutex                                                              */
@@ -112,6 +115,7 @@ private:
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_camera;
+    RT_MUTEX mutex_arena;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -123,6 +127,10 @@ private:
     RT_SEM sem_RunWtchg;
     RT_SEM sem_OpenCamera;
     RT_SEM sem_CloseCamera;
+    RT_SEM sem_arena;
+    RT_SEM sem_testArena;
+    RT_SEM sem_position;
+    
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -178,7 +186,7 @@ private:
     /**********************************************************************/
     /**
      * Write a message in a given queue
-     * @param queue Queue identifier
+     * @param queue Queue identifier   RT_SEM sem_camera;
      * @param msg Message to be stored
      */
     void WriteInQueue(RT_QUEUE *queue, Message *msg);
@@ -195,6 +203,10 @@ private:
      * @param Message
      */
     void Compteur(Message *msg);
+    
+    void FindArena(void *arg);
+    
+    void GetRobotPosition(void *arg);
 };
 
 #endif // __TASKS_H__
