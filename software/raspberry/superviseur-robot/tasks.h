@@ -87,6 +87,7 @@ private:
     int robotStarted = 0;
     int NbErreur = 0; // Variable incrémenté par compteur
     int move = MESSAGE_ROBOT_STOP;
+    bool ArenaFound = false;
    
 
     /**********************************************************************/
@@ -116,6 +117,7 @@ private:
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_camera;
     RT_MUTEX mutex_arena;
+    RT_MUTEX mutex_bool_arena;
 
     /**********************************************************************/
     /* Semaphores                                                         */

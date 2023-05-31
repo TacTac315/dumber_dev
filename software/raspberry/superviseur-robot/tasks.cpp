@@ -96,6 +96,10 @@ void Tasks::Init()
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_bool_arena, NULL)) {
+    cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+    exit(EXIT_FAILURE);
+    }
     
     cout << "Mutexes created successfully" << endl<< flush;
 
@@ -749,16 +753,25 @@ void Tasks::OpenCamera()
 
 void Tasks::GrabCamera()
 {
+    bool arene=  false;
     rt_sem_p(&sem_barrier, TM_INFINITE);
     rt_task_set_periodic(NULL, TM_NOW, 100000000);
     while(1)
     {
     rt_task_wait_period(NULL);
+    rt_mutex_acquire(&mutex_bool_arena,TM_INFINITE);
+    arene = ArenaFound;
+    rt_mutex_release(&mutex_bool_arena);
     if (camera->IsOpen())
     {
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
         Img img = camera->Grab();
-        rt_mutex_release(&mutex_camera); // limite la zone critique pour opti donc on met des qu'on peut le release
+        rt_mutex_release(&mutex_camera);// limite la zone critique pour opti donc on met des qu'on peut le release
+        if(arene){
+            rt_mutex_acquire(&mutex_arena, TM_INFINITE);
+            img.DrawArena(arena);
+            rt_mutex_release(&mutex_arena);
+        }
         MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, &img);
         cerr<<endl<<flush;
         WriteInQueue(&q_messageToMon,msgImg);
@@ -818,6 +831,9 @@ void Tasks::FindArena(void *arg)
         else
         {
             img->DrawArena(arena);
+            rt_mutex_acquire(&mutex_bool_arena, TM_INFINITE);
+            ArenaFound = true;
+            rt_mutex_release(&mutex_bool_arena);
             MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, img);
             WriteInQueue(&q_messageToMon, msgImg);
             cout << "Arena response" << endl << flush;
@@ -831,6 +847,7 @@ void Tasks::FindArena(void *arg)
 
 void Tasks::GetRobotPosition(void *arg)
 {
+    bool arene=  false;
     MessagePosition *msgPos;
     rt_task_set_periodic(NULL, TM_NOW, 100000000);
     while(1)
@@ -840,7 +857,9 @@ void Tasks::GetRobotPosition(void *arg)
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
         
         positionActivated = true;
-        
+        rt_mutex_acquire(&mutex_bool_arena, TM_INFINITE);
+        arene=ArenaFound;
+        rt_mutex_release(&mutex_bool_arena);
         while(positionActivated)
         {
             Img * img = new Img(camera->Grab());
@@ -848,6 +867,11 @@ void Tasks::GetRobotPosition(void *arg)
            // if(positions.empty())
            // {
                 img->DrawRobot(positions.front());
+                if(arene){
+                    rt_mutex_acquire(&mutex_arena,TM_INFINITE);
+                    img->DrawArena(arena);
+                    rt_mutex_release(&mutex_arena);
+                }
                 msgPos = new MessagePosition(MESSAGE_CAM_POSITION, positions.front());
                 cout << "Positions Not Found" << endl << flush;
            // }
