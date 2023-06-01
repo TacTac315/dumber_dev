@@ -784,9 +784,7 @@ void Tasks::GrabCamera()
 
 // Fonctionnalité 16 
 void Tasks::CloseCamera()
-{
-    bool IsClosed;
-    
+{    
     while(1)
     {
      rt_sem_p(&sem_CloseCamera, TM_INFINITE);
@@ -830,18 +828,18 @@ void Tasks::FindArena(void *arg)
         }
         else
         {
-            img->DrawArena(arena);
-            rt_mutex_acquire(&mutex_bool_arena, TM_INFINITE);
-            ArenaFound = true;
+            img->DrawArena(arena);  
+            rt_mutex_acquire(&mutex_bool_arena, TM_INFINITE); 
+            ArenaFound = true; 
             rt_mutex_release(&mutex_bool_arena);
             MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, img);
-            WriteInQueue(&q_messageToMon, msgImg);
-            cout << "Arena response" << endl << flush;
+            WriteInQueue(&q_messageToMon, msgImg); 
+            cout << "reponse arene" << endl << flush;
             rt_sem_p(&sem_testArena, TM_INFINITE);
             rt_mutex_release(&mutex_camera);
         }
-        
-        cout << "Arena Finish" << endl << flush;
+          
+        cout << "finito" << endl << flush;  
     }
 }
 
@@ -864,22 +862,23 @@ void Tasks::GetRobotPosition(void *arg)
         {
             Img * img = new Img(camera->Grab());
             std::list<Position>  positions = img->SearchRobot(arena);
-           // if(positions.empty())
-           // {
+            if(positions.empty())
+            {
+
+                msgPos = new MessagePosition(MESSAGE_CAM_POSITION, positions.front());
+                cout << "Positions Not Found" << endl << flush;
+            }
+            else
+            {
                 img->DrawRobot(positions.front());
                 if(arene){
                     rt_mutex_acquire(&mutex_arena,TM_INFINITE);
                     img->DrawArena(arena);
                     rt_mutex_release(&mutex_arena);
                 }
-                msgPos = new MessagePosition(MESSAGE_CAM_POSITION, positions.front());
-                cout << "Positions Not Found" << endl << flush;
-           // }
-           // else
-           // {
-                //msgPos = new MessagePosition(MESSAGE_CAM_POSITION,Position());
+                msgPos = new MessagePosition(MESSAGE_CAM_POSITION,positions.front());
                 cout << "Positions Found" << endl << flush;
-           // }
+            }
 
             MessageImg *msgImg = new MessageImg(MESSAGE_CAM_IMAGE, img);
             WriteInQueue(&q_messageToMon, msgImg);
