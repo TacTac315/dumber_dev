@@ -58,7 +58,7 @@ public:
      * @brief Suspends main thread
      */
     void Join();
-    
+
     /**
      * @brief Get the state of the camera
      */
@@ -88,7 +88,6 @@ private:
     int NbErreur = 0; // Variable incrémenté par compteur
     int move = MESSAGE_ROBOT_STOP;
     bool ArenaFound = false;
-   
 
     /**********************************************************************/
     /* Tasks                                                              */
@@ -132,7 +131,7 @@ private:
     RT_SEM sem_arena;
     RT_SEM sem_testArena;
     RT_SEM sem_position;
-    
+
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -182,7 +181,6 @@ private:
      */
     void RunWatchdog(void);
 
-
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/
@@ -205,9 +203,9 @@ private:
      * @param Message
      */
     void Compteur(Message *msg);
-    
+
     void FindArena(void *arg);
-    
+
     void GetRobotPosition(void *arg);
 };
 
